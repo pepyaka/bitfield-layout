@@ -1,0 +1,11 @@
+[package]
+name = "bitfield-layout"
+version = "0.1.0"
+authors = ["Mikhail Bratchikov"]
+edition = "2018"
+
+[dependencies]
+either = "1.6"
+
+[dev-dependencies]
+pretty_assertions = "0.7"
