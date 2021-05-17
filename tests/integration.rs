@@ -1,8 +1,10 @@
 use std::{array};
 
 use either::Either;
+use pretty_assertions::assert_eq;
 
 use bitfield_layout::*;
+
 
 #[test]
 fn simple() {

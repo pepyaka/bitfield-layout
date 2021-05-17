@@ -14,7 +14,7 @@
 //! 
 //! ```
 //! use std::{array, fmt, slice};
-//! use bitfield_layout::{Layout, Bytes, BitFieldLayout};
+//! use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout};
 //! 
 //! // New struct that holds bitfield value
 //! struct Simple(u8);
@@ -38,7 +38,7 @@
 //! impl Bytes for Simple {
 //!     type Bytes = array::IntoIter<u8, 1>;
 //!     fn bytes(&self) -> Self::Bytes {
-//!         array::IntoIter::new(self.0.to_ne_bytes())
+//!         self.0.to_bytes()
 //!     }
 //! }
 //! // Main trait implementation
@@ -86,7 +86,7 @@
 //! We can handle this register like:
 //! ```
 //! use std::{array, fmt, slice};
-//! use bitfield_layout::{Layout, Bytes, BitFieldLayout};
+//! use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout};
 //! 
 //! // Struct for handle flag name and flag description
 //! struct NameAndDescription<'a>(&'a str, &'a str);
@@ -154,7 +154,7 @@
 //!     type Bytes = array::IntoIter<u8, 1>;
 //!     // Convert one byte value (u8) to one item iterator
 //!     fn bytes(&self) -> Self::Bytes {
-//!         array::IntoIter::new(self.0.to_ne_bytes())
+//!         self.0.to_bytes()
 //!     }
 //! }
 //! // Bitfield trait implementation
@@ -183,6 +183,7 @@ use core::array;
 
 use either::Either;
 
+#[macro_use]
 pub mod layouts;
 pub use layouts::*;
 
@@ -599,7 +600,7 @@ mod tests {
         assert_eq!(13u64.to_bytes().collect::<Vec<_>>(), vec![13,0,0,0,0,0,0,0], "ToBytes: u64");
         assert_eq!(13u128.to_bytes().collect::<Vec<_>>(), vec![13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], "ToBytes: u128");
         assert_eq!([13u8].to_bytes().collect::<Vec<_>>(), vec![13], "ToBytes: [u8; 1]");
-        assert_eq!([13u8,42u8].to_bytes().collect::<Vec<_>>(), vec![13, 42], "ToBytes: [u8; 2]");
+        assert_eq!([13u8,42u8,73u8].to_bytes().collect::<Vec<_>>(), vec![13, 42, 73], "ToBytes: [u8; 3]");
     }
 
     #[test]

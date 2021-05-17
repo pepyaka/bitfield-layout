@@ -10,8 +10,8 @@ use core::fmt;
 /// We can rewrite [6502 status register example](super#example-status-register-of-mos-technology-6502)
 /// using this struct
 /// ```
-/// use std::{array, fmt, slice};
-/// use bitfield_layout::{Layout, Bytes, BitFieldLayout, DualView};
+/// # use std::{array, fmt, slice, ops::Deref};
+/// # use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout, DualView};
 /// 
 /// struct StatusRegister(u8);
 /// impl StatusRegister {
@@ -59,13 +59,9 @@ use core::fmt;
 /// }
 /// impl Bytes for StatusRegister {
 ///     type Bytes = array::IntoIter<u8, 1>;
-///     fn bytes(&self) -> Self::Bytes { array::IntoIter::new(self.0.to_ne_bytes()) }
+///     fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
 /// }
 /// impl BitFieldLayout for StatusRegister {}
-/// 
-/// for f in StatusRegister(0b10000001).flags() {
-///     println!("Name: {}\nDescription: {:#}\n", f.value, f.value)
-/// }
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct DualView<'a>(pub &'a str, pub &'a str);
@@ -79,7 +75,7 @@ impl<'a> fmt::Display for DualView<'a> {
 /// Complex enumeration for several types of bit (flag)
 ///
 /// This struct may used for each record in bitfield layout
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum FlagType<'a> {
     /// Has two strings - one for meaning, other for long description
     Significant(&'a str, &'a str),
@@ -111,59 +107,230 @@ impl<'a> fmt::Display for FlagType<'a> {
 
 
 
+/// Fast defining of useful types
+///
+/// This macro helps to implement [crate::BitFieldLayout] trait and create associated const layout.
+/// Macro may be used for following data types:
+/// - [DualView](#dualview)
+/// - [FlagType](#flagtype)
+///
+/// ## DualView
+/// 
+/// ```
+/// # use core::{slice,array};
+/// # use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout, DualView, layout};
+/// # fn main() {
+///
+/// // Data created by macro
+/// let macro_data = {
+///     layout!(
+///         DualView;
+///         struct Letters(u8);
+///         "a",
+///         "b" "B",
+///         "c",
+///         "d",
+///         "e",
+///         "f" "F",
+///         "g" "G",
+///         "h" "H",
+///     );
+///     Letters(42).flags()
+/// };
+/// // Expands to:
+/// let manual_data = {
+///     struct Letters(u8);
+///     impl Letters {
+///         const LAYOUT: [DualView<'static>; 8] = [
+///             DualView("a", "a"),
+///             DualView("b", "B"),
+///             DualView("c", "c"),
+///             DualView("d", "d"),
+///             DualView("e", "e"),
+///             DualView("f", "F"),
+///             DualView("g", "G"),
+///             DualView("h", "H"),
+///         ];
+///     }
+///     
+///     impl Layout for Letters {
+///         type Layout = slice::Iter<'static, DualView<'static>>;
+///         fn layout() -> Self::Layout { Letters::LAYOUT.iter() }
+///     }
+///     impl Bytes for Letters {
+///         type Bytes = array::IntoIter<u8, 1>;
+///         fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+///     }
+///     impl BitFieldLayout for Letters {}
+///     Letters(42).flags()
+/// };
+///
+/// assert_eq!(macro_data.collect::<Vec<_>>(), manual_data.collect::<Vec<_>>());
+/// # }
+/// ```
+///
+/// ## FlagType
+/// ```
+/// # use core::{slice,array};
+/// # use pretty_assertions::assert_eq;
+/// # use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout, FlagType, layout};
+/// # fn main() {
+/// let macro_data = {
+///     layout!(
+///         FlagType;
+///         struct EightFlags(u8);
+///         "Significant: meaning",
+///         "Significant: meaning" "Significant: description",
+///         "Reserved: 2 bits": 2,
+///         "Reserved: shouldn't exists": 0,
+///         ShouldBe0,
+///         ShouldBe1,
+///         Unknown,
+///         Undefined,
+///     );
+///
+///     EightFlags(73).flags()
+/// };
+/// // Expands to
+/// 
+/// let manual_data = {
+///     struct EightFlags(u8);
+///     impl EightFlags {
+///         const LAYOUT: [FlagType<'static>; 8] = [
+///             FlagType::Significant("Significant: meaning", "Significant: meaning"),
+///             FlagType::Significant("Significant: meaning", "Significant: description"),
+///             FlagType::Reserved("Reserved: 2 bits"),
+///             FlagType::Reserved("Reserved: 2 bits"),
+///             FlagType::ShouldBe0,
+///             FlagType::ShouldBe1,
+///             FlagType::Unknown,
+///             FlagType::Undefined,
+///         ];
+///     }
+///     
+///     impl Layout for EightFlags {
+///         type Layout = slice::Iter<'static, FlagType<'static>>;
+///         fn layout() -> Self::Layout { EightFlags::LAYOUT.iter() }
+///     }
+///     impl Bytes for EightFlags {
+///         type Bytes = array::IntoIter<u8, 1>;
+///         fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+///     }
+///     impl BitFieldLayout for EightFlags {}
+///
+///     EightFlags(73).flags()
+/// };
+///
+/// assert_eq!(macro_data.collect::<Vec<_>>(), manual_data.collect::<Vec<_>>());
+/// # }
+/// ```
+#[macro_export]
+macro_rules! layout  {
+    // DualView
+    (item = DualView; [] -> [$($output:tt)*]) => {
+        [$($output)*]
+    };
+    (item = DualView; [$m:literal $d:literal, $($input:tt)*] -> [$($output:tt)*]) => {
+        layout!(item = DualView; [$($input)*] -> [$($output)* DualView($m, $d),])
+    };
+    (item = DualView; [$m:literal, $($input:tt)*] -> [$($output:tt)*]) => {{
+        layout!(item = DualView; [$($input)*] -> [$($output)* DualView($m, $m),])
+    }};
+    (DualView; $vis:vis $ident:ident $name:ident($bytes:tt); $($input:tt)*) => {
+        $vis $ident $name($bytes);
+        impl $name {
+            const LAYOUT: &'static [DualView<'static>] =
+                &layout!(item = DualView; [$($input)*] -> []);
+        }
+        impl Layout for $name {
+            type Layout = slice::Iter<'static, DualView<'static>>;
+            fn layout() -> Self::Layout { $name::LAYOUT.iter() }
+        }
+        impl Bytes for $name {
+            type Bytes = array::IntoIter<u8, { layout!(@count_bytes $bytes) }>;
+            fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+        }
+        impl BitFieldLayout for $name {}
+    };
 
-//#[macro_export]
-//macro_rules! layout  {
-//    // DualView
-//    (item = DualView; [] -> [$($output:tt)*]) => {
-//        [$($output)*].iter()
-//    };
-//    (item = DualView; [$m:literal $d:literal, $($input:tt)*] -> [$($output:tt)*]) => {
-//        layout!(item = DualView; [$($input)*] -> [$($output)* layouts::DualView($m, $d),])
-//    };
-//    (item = DualView; [$m:literal, $($input:tt)*] -> [$($output:tt)*]) => {{
-//        layout!(item = DualView; [$($input)*] -> [$($output)* layouts::DualView($m, $m),])
-//    }};
-//    ([DualView]; $($input:tt)*) => {
-//        layout!(item = DualView; [$($input)*] -> [])
-//    };
-//
-//    // FlagType
-//    (item = FlagType; array = $a:expr; index = $i:expr;) => {{ $a }};
-//    (item = FlagType; array = $a:expr; index = $i:expr; $m:literal: $n:expr, $($input:tt)*) => {{
-//        let mut result = layout!(item = FlagType; array = $a; index = $i + $n; $($input)*);
-//        let mut i = $i;
-//        while i < $i + $n {
-//            result[i] = FlagType::Reserved($m);
-//            i += 1;
-//        }
-//        result
-//    }};
-//    (item = FlagType; array = $a:expr; index = $i:expr; $m:literal $d:literal, $($input:tt)*) => {{
-//        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
-//        result[$i] = FlagType::Significant($m, $d);
-//        result
-//    }};
-//    (item = FlagType; array = $a:expr; index = $i:expr; $m:literal, $($input:tt)*) => {{
-//        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
-//        result[$i] = FlagType::Significant($m, $m);
-//        result
-//    }};
-//    ([FlagType; $n:expr]; $($input:tt)*) => {{
-//        const LAYOUT: [FlagType; $n] =
-//            layout!(item = FlagType; array = [FlagType::Unknown; $n]; index = 0; $($input)*);
-//        LAYOUT.iter()
-//    }};
-//
-//    // Utils
-//    (@as_expr $e:expr) => { $e };
-//}
+    // FlagType
+    (item = FlagType; array = $a:expr; index = $i:expr;) => {{ $a }};
+    (item = FlagType; array = $a:expr; index = $i:expr; Undefined, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
+        result[$i] = FlagType::Undefined;
+        result
+    }};
+    (item = FlagType; array = $a:expr; index = $i:expr; Unknown, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
+        result[$i] = FlagType::Unknown;
+        result
+    }};
+    (item = FlagType; array = $a:expr; index = $i:expr; ShouldBe1, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
+        result[$i] = FlagType::ShouldBe1;
+        result
+    }};
+    (item = FlagType; array = $a:expr; index = $i:expr; ShouldBe0, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
+        result[$i] = FlagType::ShouldBe0;
+        result
+    }};
+    (item = FlagType; array = $a:expr; index = $i:expr; $m:literal: $n:expr, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + $n; $($input)*);
+        let mut i = $i;
+        while i < $i + $n {
+            result[i] = FlagType::Reserved($m);
+            i += 1;
+        }
+        result
+    }};
+    (item = FlagType; array = $a:expr; index = $i:expr; $m:literal $d:literal, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
+        result[$i] = FlagType::Significant($m, $d);
+        result
+    }};
+    (item = FlagType; array = $a:expr; index = $i:expr; $m:literal, $($input:tt)*) => {{
+        let mut result = layout!(item = FlagType; array = $a; index = $i + 1; $($input)*);
+        result[$i] = FlagType::Significant($m, $m);
+        result
+    }};
+    (FlagType; $vis:vis $ident:ident $name:ident($bytes:tt); $($input:tt)*) => {
+        $vis $ident $name($bytes);
+        impl $name {
+            const LAYOUT: [FlagType<'static>; { layout!(@count_bytes $bytes) * 8 }] =
+                layout!(
+                    item = FlagType;
+                    array = [FlagType::Unknown; { layout!(@count_bytes $bytes) * 8 }];
+                    index = 0;
+                    $($input)*
+                );
+        }
+        impl Layout for $name {
+            type Layout = slice::Iter<'static, FlagType<'static>>;
+            fn layout() -> Self::Layout { $name::LAYOUT.iter() }
+        }
+        impl Bytes for $name {
+            type Bytes = array::IntoIter<u8, { layout!(@count_bytes $bytes) }>;
+            fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+        }
+        impl BitFieldLayout for $name {}
+    };
+
+    // Utils
+    (@as_expr $expr:expr) => { $expr };
+    (@as_ty $ty:ty) => { $ty };
+    (@count_bytes u8) => { 1 };
+    (@count_bytes u16) => { 2 };
+    (@count_bytes u32) => { 4 };
+    (@count_bytes u64) => { 8 };
+    (@count_bytes u128) => { 16 };
+    (@count_bytes [u8; $n:expr]) => { $n };
+}
 
 
 
 #[cfg(test)]
 mod tests {
-    //#![feature(trace_macros)]
     use std::prelude::v1::*;
     use std::{slice,};
 
@@ -189,58 +356,55 @@ mod tests {
 
     #[test]
     fn layout_macro_dual_view() {
-        struct EightFlags(u8);
-        impl EightFlags {
-            const LAYOUT: [DualView<'static>; 8] = [
-                DualView(
-                    "Carry flag",
-                    "Enables numbers larger than a single word to be added/subtracted by
-                    carrying a binary digit from a less significant word to the least
-                    significant bit of a more significant word as needed."
-                ),
-                DualView(
-                    "Zero flag",
-                    "Indicates that the result of an arithmetic or logical operation
-                    (or, sometimes, a load) was zero."
-                ),
-                DualView(
-                    "Interrupt flag",
-                    "Indicates whether interrupts are enabled or masked."
-                ),
-                DualView(
-                    "Decimal flag",
-                    "Indicates that a bit carry was produced between the nibbles as a
-                    result of the last arithmetic operation."
-                ),
-                DualView(
-                    "Break flag",
-                    "It can be examined as a value stored on the stack."
-                ),
-                DualView("Unused", "Unused"),
-                DualView(
-                    "Overflow flag",
-                    "Indicates that the signed result of an operation is too large to
-                    fit in the register width using two's complement representation."
-                ),
-                DualView(
-                    "Negative flag",
-                    "Indicates that the result of a mathematical operation is negative."
-                ),
-            ];
-        }
-        
-        impl Layout for EightFlags {
-            type Layout = slice::Iter<'static, DualView<'static>>;
-            fn layout() -> Self::Layout { EightFlags::LAYOUT.iter() }
-        }
-        impl Bytes for EightFlags {
-            type Bytes = array::IntoIter<u8, 1>;
-            fn bytes(&self) -> Self::Bytes { array::IntoIter::new(self.0.to_ne_bytes()) }
-        }
-        impl BitFieldLayout for EightFlags {}
-        
-        for f in EightFlags(42).flags() {
-            println!("Name: {}\nDescription: {:#}\n", f.value, f.value)
-        }
+        layout!(
+            DualView;
+            struct Letters(u8);
+            "a",
+            "b" "B",
+            "c",
+            "d",
+            "e",
+            "f" "F",
+            "g" "G",
+            "h" "H",
+        );
+        let l0 = Letters(0b00000000);
+        let l1 = Letters(0b00100000);
+        let result = l0.diff(l1).nth(0).unwrap();
+        let sample = either::Either::Right((5, &DualView("f", "F")));
+        assert_eq!(sample, result);
+        layout!(
+            DualView;
+            pub struct Triple([u8; 3]);
+            "a",
+            "b" "B",
+            "c",
+            "d",
+            "e",
+            "f" "F",
+            "g" "G",
+            "h" "H",
+        );
+    }
+
+    #[test]
+    fn layout_macro_flag_type() {
+        layout!(
+            FlagType;
+            struct EightFlags(u8);
+            "Significant: meaning",
+            "Significant: meaning" "Significant: description",
+            "Reserved: 2 bits": 2,
+            "Reserved: shouldn't exists": 0,
+            ShouldBe0,
+            ShouldBe1,
+            Unknown,
+            Undefined,
+        );
+        let ef0 = EightFlags(0b00000000);
+        let ef1 = EightFlags(0b00100000);
+        let result = ef0.diff(ef1).nth(0).unwrap();
+        let sample = either::Either::Right((5, &FlagType::ShouldBe1));
+        assert_eq!(sample, result);
     }
 }
