@@ -347,7 +347,7 @@ macro_rules! layout  {
                 );
         }
         impl Layout for $name {
-            type Layout = slice::Iter<'static, FlagType<'static>>;
+            type Layout = core::slice::Iter<'static, FlagType<'static>>;
             fn layout() -> Self::Layout { $name::LAYOUT.iter() }
         }
         impl BitFieldLayout for $name {
