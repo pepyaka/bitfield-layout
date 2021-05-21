@@ -242,7 +242,7 @@ pub use layouts::*;
 /// In general you need implement this trait and its dependencies: [Layout]. 
 /// This trait already implemented for [BitField].
 pub trait BitFieldLayout: Layout {
-    type Value: Copy + IntoBits;
+    type Value: Copy + IntoBits + FromBits;
     /// Returns a copy of the contained value.
     fn get(&self) -> Self::Value;
     /// Sets the contained value.
@@ -268,6 +268,38 @@ pub trait BitFieldLayout: Layout {
         let v = f(self.get());
         self.set(v);
         v
+    }
+
+    /// Set the specified bit (flag) in-place. Returns current state
+    fn insert_flag(&mut self, position: usize, b: bool) -> bool {
+        let mut result = false;
+        let bits = self.get()
+            .into_bits()
+            .enumerate()
+            .map(|(n, is_set)| {
+                if n == position {
+                    result = is_set;
+                    b
+                } else {
+                    is_set
+                }
+            });
+        self.set(Self::Value::from_bits(bits));
+        result
+    }
+    /// The specified bit (flag) will be inverted
+    fn toggle_flag(&mut self, position: usize) {
+        let bits = self.get()
+            .into_bits()
+            .enumerate()
+            .map(|(n, is_set)| {
+                if n == position {
+                    !is_set
+                } else {
+                    is_set
+                }
+            });
+        self.set(Self::Value::from_bits(bits));
     }
     /// Return iterator through bitfield value bits. Every bit represents as bool value.
     fn bits(&self) -> Bits<<Self::Value as IntoBits>::Bytes> {
@@ -669,7 +701,7 @@ impl<M: Layout, T> Layout for BitField<M, T> {
     type Layout = M::Layout;
     fn layout() -> Self::Layout { M::layout() }
 }
-impl<M: Layout, T: Copy + IntoBits> BitFieldLayout for BitField<M, T> {
+impl<M: Layout, T: Copy + IntoBits + FromBits> BitFieldLayout for BitField<M, T> {
     type Value = T;
     fn get(&self) -> Self::Value { self.value }
     fn set(&mut self, new: Self::Value) { self.value = new; }
