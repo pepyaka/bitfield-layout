@@ -11,7 +11,7 @@ use core::fmt;
 /// using this struct
 /// ```
 /// # use std::{array, fmt, slice, ops::Deref};
-/// # use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout, DualView};
+/// # use bitfield_layout::{Layout, BitFieldLayout, DualView};
 /// 
 /// struct StatusRegister(u8);
 /// impl StatusRegister {
@@ -52,16 +52,15 @@ use core::fmt;
 ///         ),
 ///     ];
 /// }
-/// 
 /// impl Layout for StatusRegister {
 ///     type Layout = slice::Iter<'static, DualView<'static>>;
 ///     fn layout() -> Self::Layout { StatusRegister::LAYOUT.iter() }
 /// }
-/// impl Bytes for StatusRegister {
-///     type Bytes = array::IntoIter<u8, 1>;
-///     fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+/// impl BitFieldLayout for StatusRegister {
+///     type Value = u8;
+///     fn get(&self) -> Self::Value { self.0 }
+///     fn set(&mut self, new: Self::Value) { self.0 = new; }
 /// }
-/// impl BitFieldLayout for StatusRegister {}
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct DualView<'a>(pub &'a str, pub &'a str);
@@ -74,7 +73,48 @@ impl<'a> fmt::Display for DualView<'a> {
 
 /// Complex enumeration for several types of bit (flag)
 ///
-/// This struct may used for each record in bitfield layout
+/// This enum variants may be used to show difference beetween meaningful and reserved flags.
+/// ```
+/// # use core::{slice,array};
+/// # use pretty_assertions::assert_eq;
+/// # use bitfield_layout::{Layout, BitFieldLayout, FlagType, layout};
+///
+/// // Bitfield type definition
+/// struct Light(u8);
+/// impl Light {
+///     const LAYOUT: [FlagType<'static>; 8] = [
+///         FlagType::Significant("Red", "Red is the color at the long wavelength end"),
+///         FlagType::Significant("Blue", "Blue is one of the three primary colours of pigments"),
+///         FlagType::Significant("Green", "Green is the color between blue and yellow"),
+///         FlagType::Reserved("Invisible"),
+///         FlagType::ShouldBe0,
+///         FlagType::ShouldBe1,
+///         FlagType::Unknown,
+///         FlagType::Undefined,
+///     ];
+/// }
+/// // Implementation
+/// impl Layout for Light {
+///     type Layout = slice::Iter<'static, FlagType<'static>>;
+///     fn layout() -> Self::Layout { Light::LAYOUT.iter() }
+/// }
+/// impl BitFieldLayout for Light {
+///     type Value = u8;
+///     fn get(&self) -> Self::Value { self.0 }
+///     fn set(&mut self, new: Self::Value) { self.0 = new; }
+/// }
+///
+/// // Value assignment
+/// let white = Light(0b00100111);
+///
+/// let result = white.flags()
+///     .enumerate()
+///     .find(|(n, f)| n == &5 && f.is_set == true)
+///     .map(|(_, f)| *f.value);
+/// let sample = Some(FlagType::ShouldBe1);
+///
+/// assert_eq!(sample, result);
+/// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Hash)]
 pub enum FlagType<'a> {
     /// Has two strings - one for meaning, other for long description
@@ -118,7 +158,7 @@ impl<'a> fmt::Display for FlagType<'a> {
 /// 
 /// ```
 /// # use core::{slice,array};
-/// # use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout, DualView, layout};
+/// # use bitfield_layout::{Layout, BitFieldLayout, DualView, layout};
 /// # fn main() {
 ///
 /// // Data created by macro
@@ -135,6 +175,7 @@ impl<'a> fmt::Display for FlagType<'a> {
 ///         "g" "G",
 ///         "h" "H",
 ///     );
+///
 ///     Letters(42).flags()
 /// };
 /// // Expands to:
@@ -157,11 +198,12 @@ impl<'a> fmt::Display for FlagType<'a> {
 ///         type Layout = slice::Iter<'static, DualView<'static>>;
 ///         fn layout() -> Self::Layout { Letters::LAYOUT.iter() }
 ///     }
-///     impl Bytes for Letters {
-///         type Bytes = array::IntoIter<u8, 1>;
-///         fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+///     impl BitFieldLayout for Letters {
+///         type Value = u8;
+///         fn get(&self) -> Self::Value { self.0 }
+///         fn set(&mut self, new: Self::Value) { self.0 = new; }
 ///     }
-///     impl BitFieldLayout for Letters {}
+///
 ///     Letters(42).flags()
 /// };
 ///
@@ -173,7 +215,7 @@ impl<'a> fmt::Display for FlagType<'a> {
 /// ```
 /// # use core::{slice,array};
 /// # use pretty_assertions::assert_eq;
-/// # use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout, FlagType, layout};
+/// # use bitfield_layout::{Layout, BitFieldLayout, FlagType, layout};
 /// # fn main() {
 /// let macro_data = {
 ///     layout!(
@@ -191,8 +233,7 @@ impl<'a> fmt::Display for FlagType<'a> {
 ///
 ///     EightFlags(73).flags()
 /// };
-/// // Expands to
-/// 
+/// // Expands to:
 /// let manual_data = {
 ///     struct EightFlags(u8);
 ///     impl EightFlags {
@@ -212,11 +253,11 @@ impl<'a> fmt::Display for FlagType<'a> {
 ///         type Layout = slice::Iter<'static, FlagType<'static>>;
 ///         fn layout() -> Self::Layout { EightFlags::LAYOUT.iter() }
 ///     }
-///     impl Bytes for EightFlags {
-///         type Bytes = array::IntoIter<u8, 1>;
-///         fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+///     impl BitFieldLayout for EightFlags {
+///         type Value = u8;
+///         fn get(&self) -> Self::Value { self.0 }
+///         fn set(&mut self, new: Self::Value) { self.0 = new; }
 ///     }
-///     impl BitFieldLayout for EightFlags {}
 ///
 ///     EightFlags(73).flags()
 /// };
@@ -236,8 +277,8 @@ macro_rules! layout  {
     (item = DualView; [$m:literal, $($input:tt)*] -> [$($output:tt)*]) => {{
         layout!(item = DualView; [$($input)*] -> [$($output)* DualView($m, $m),])
     }};
-    (DualView; $vis:vis $ident:ident $name:ident($bytes:tt); $($input:tt)*) => {
-        $vis $ident $name($bytes);
+    (DualView; $vis:vis $ident:ident $name:ident($value:tt); $($input:tt)*) => {
+        $vis $ident $name($value);
         impl $name {
             const LAYOUT: &'static [DualView<'static>] =
                 &layout!(item = DualView; [$($input)*] -> []);
@@ -246,11 +287,11 @@ macro_rules! layout  {
             type Layout = slice::Iter<'static, DualView<'static>>;
             fn layout() -> Self::Layout { $name::LAYOUT.iter() }
         }
-        impl Bytes for $name {
-            type Bytes = array::IntoIter<u8, { layout!(@count_bytes $bytes) }>;
-            fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+        impl BitFieldLayout for $name {
+            type Value = $value;
+            fn get(&self) -> Self::Value { self.0 }
+            fn set(&mut self, new: Self::Value) { self.0 = new; }
         }
-        impl BitFieldLayout for $name {}
     };
 
     // FlagType
@@ -294,13 +335,13 @@ macro_rules! layout  {
         result[$i] = FlagType::Significant($m, $m);
         result
     }};
-    (FlagType; $vis:vis $ident:ident $name:ident($bytes:tt); $($input:tt)*) => {
-        $vis $ident $name($bytes);
+    (FlagType; $vis:vis $ident:ident $name:ident($value:tt); $($input:tt)*) => {
+        $vis $ident $name($value);
         impl $name {
-            const LAYOUT: [FlagType<'static>; { layout!(@count_bytes $bytes) * 8 }] =
+            const LAYOUT: [FlagType<'static>; { layout!(@count_bytes $value) * 8 }] =
                 layout!(
                     item = FlagType;
-                    array = [FlagType::Unknown; { layout!(@count_bytes $bytes) * 8 }];
+                    array = [FlagType::Unknown; { layout!(@count_bytes $value) * 8 }];
                     index = 0;
                     $($input)*
                 );
@@ -309,11 +350,11 @@ macro_rules! layout  {
             type Layout = slice::Iter<'static, FlagType<'static>>;
             fn layout() -> Self::Layout { $name::LAYOUT.iter() }
         }
-        impl Bytes for $name {
-            type Bytes = array::IntoIter<u8, { layout!(@count_bytes $bytes) }>;
-            fn bytes(&self) -> Self::Bytes { self.0.to_bytes() }
+        impl BitFieldLayout for $name {
+            type Value = $value;
+            fn get(&self) -> Self::Value { self.0 }
+            fn set(&mut self, new: Self::Value) { self.0 = new; }
         }
-        impl BitFieldLayout for $name {}
     };
 
     // Utils

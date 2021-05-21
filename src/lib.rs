@@ -5,7 +5,7 @@
 //! Then you getting bitfield data it's useful to get meaning and/or description of setted flags.
 //! 
 //! This crate provides basic trait [BitFieldLayout] that provides convenient methods for getting flags
-//! and it meaning of user defined structures or enums. Also there is module [layouts] with accessory
+//! and it meanings of user defined structs or enums. Also there is module [layouts] with accessory
 //! structs and macros.
 //! 
 //! # Example: simple string
@@ -14,7 +14,8 @@
 //! 
 //! ```
 //! use std::{array, fmt, slice};
-//! use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout};
+//! use either::Either;
+//! use bitfield_layout::{Layout, BitFieldLayout};
 //! 
 //! // New struct that holds bitfield value
 //! struct Simple(u8);
@@ -34,39 +35,85 @@
 //!         ].iter()
 //!     }
 //! }
-//! // Represent type's value as bytes
-//! impl Bytes for Simple {
-//!     type Bytes = array::IntoIter<u8, 1>;
-//!     fn bytes(&self) -> Self::Bytes {
-//!         self.0.to_bytes()
-//!     }
-//! }
 //! // Main trait implementation
-//! impl BitFieldLayout for Simple {}
+//! impl BitFieldLayout for Simple {
+//!     type Value = u8;
+//!     fn get(&self) -> Self::Value { self.0 }
+//!     fn set(&mut self, new: Self::Value) { self.0 = new; }
+//! }
 //! 
 //! // Now we can use methods provided by trait
 //! 
 //! // Show full data layout (just show flag meanings that we defined)
-//! for l in Simple::layout() {
-//!     println!("{}", l);
-//! }
+//! let layout = Simple::layout();
+//!
+//! let layout_result = layout
+//!     .cloned()
+//!     .collect::<Vec<_>>();
+//! let layout_sample = vec![
+//!     "First flag",
+//!     "Second flag",
+//!     "Third flag",
+//!     "Fourth flag",
+//!     "Fifth flag",
+//!     "Sixth flag",
+//!     "Seventh flag",
+//!     "Eighth flag",
+//! ];
+//! assert_eq!(layout_sample, layout_result, "Layout");
 //! 
-//! // Show every bit (flag) state
+//! // Assign value to aur bitfield type
 //! let simple = Simple(0b10101010);
-//! for (n, b) in simple.bits().enumerate() {
-//!     println!("Bit #{}: {}", n, if b { "Is set" } else { "Not set" });
-//! }
+//! // Show every bit (flag) state
+//! let bits = simple.bits();
+//!
+//! let bits_result = bits
+//!     .enumerate()
+//!     .map(|(n, b)| format!("Bit #{}: {}", n, if b { "Is set" } else { "Not set" }))
+//!     .collect::<Vec<_>>();
+//! let bits_sample = vec![
+//!     "Bit #0: Not set",
+//!     "Bit #1: Is set",
+//!     "Bit #2: Not set",
+//!     "Bit #3: Is set",
+//!     "Bit #4: Not set",
+//!     "Bit #5: Is set",
+//!     "Bit #6: Not set",
+//!     "Bit #7: Is set",
+//! ];
+//! assert_eq!(bits_sample, bits_result, "Bits");
 //! 
 //! // Show bit (flag) state and it meaning
-//! for f in simple.flags() {
-//!     println!("Flag {} is {}", f.value, f.is_set);
-//! }
+//! let flags = simple.flags();
+//!
+//! let flags_result = flags
+//!     .map(|f| format!("`{}` is {}", f.value, f.is_set))
+//!     .collect::<Vec<_>>();
+//! let flags_sample = vec![
+//!     "`First flag` is false",
+//!     "`Second flag` is true",
+//!     "`Third flag` is false",
+//!     "`Fourth flag` is true",
+//!     "`Fifth flag` is false",
+//!     "`Sixth flag` is true",
+//!     "`Seventh flag` is false",
+//!     "`Eighth flag` is true",
+//! ];
+//! assert_eq!(flags_sample, flags_result, "Flags");
 //! 
 //! // Show difference between two bitfield values
 //! let other = Simple(0b11001100);
-//! for diff in simple.diff(other) {
-//!     println!("Diff: {:?}", diff);
-//! }
+//! let diff = simple.diff(other);
+//!
+//! let diff_result = diff
+//!     .collect::<Vec<_>>();
+//! let diff_sample = vec![
+//!     Either::Left((1, &"Second flag")),
+//!     Either::Right((2, &"Third flag")),
+//!     Either::Left((5, &"Sixth flag")),
+//!     Either::Right((6, &"Seventh flag")),
+//! ];
+//! assert_eq!(diff_sample, diff_result, "Diff");
 //! ```
 //! 
 //! # Example: status register of MOS Technology 6502
@@ -86,7 +133,7 @@
 //! We can handle this register like:
 //! ```
 //! use std::{array, fmt, slice};
-//! use bitfield_layout::{Layout, Bytes, ToBytes, BitFieldLayout};
+//! use bitfield_layout::{Layout, BitFieldLayout};
 //! 
 //! // Struct for handle flag name and flag description
 //! struct NameAndDescription<'a>(&'a str, &'a str);
@@ -105,13 +152,13 @@
 //!     const LAYOUT: [NameAndDescription<'static>; 8] = [
 //!         NameAndDescription(
 //!             "Carry flag",
-//!             "Enables numbers larger than a single word to be added/subtracted by
-//!             carrying a binary digit from a less significant word to the least
+//!             "Enables numbers larger than a single word to be added/subtracted by \
+//!             carrying a binary digit from a less significant word to the least \
 //!             significant bit of a more significant word as needed."
 //!         ),
 //!         NameAndDescription(
 //!             "Zero flag",
-//!             "Indicates that the result of an arithmetic or logical operation
+//!             "Indicates that the result of an arithmetic or logical operation \
 //!             (or, sometimes, a load) was zero."
 //!         ),
 //!         NameAndDescription(
@@ -120,7 +167,7 @@
 //!         ),
 //!         NameAndDescription(
 //!             "Decimal flag",
-//!             "Indicates that a bit carry was produced between the nibbles as a
+//!             "Indicates that a bit carry was produced between the nibbles as a \
 //!             result of the last arithmetic operation."
 //!         ),
 //!         NameAndDescription(
@@ -130,7 +177,7 @@
 //!         NameAndDescription("Unused", "Unused"),
 //!         NameAndDescription(
 //!             "Overflow flag",
-//!             "Indicates that the signed result of an operation is too large to
+//!             "Indicates that the signed result of an operation is too large to \
 //!             fit in the register width using two's complement representation."
 //!         ),
 //!         NameAndDescription(
@@ -148,27 +195,29 @@
 //!         StatusRegister::LAYOUT.iter()
 //!     }
 //! }
-//! // Implement iterator through bytes
-//! impl Bytes for StatusRegister {
-//!     // Last '1' indicate number of iterator items.
-//!     type Bytes = array::IntoIter<u8, 1>;
-//!     // Convert one byte value (u8) to one item iterator
-//!     fn bytes(&self) -> Self::Bytes {
-//!         self.0.to_bytes()
-//!     }
-//! }
 //! // Bitfield trait implementation
-//! impl BitFieldLayout for StatusRegister {}
+//! impl BitFieldLayout for StatusRegister {
+//!     type Value = u8;
+//!     fn get(&self) -> Self::Value { self.0 }
+//!     fn set(&mut self, new: Self::Value) { self.0 = new; }
+//! }
 //! 
 //! // For example our value has setted Carry and Negative flags
-//! let status = StatusRegister(0b10000001);
+//! let status = StatusRegister(0b10000100);
 //! 
-//! // Print only setted flag name and description
-//! for f in status.flags() {
-//!     if f.is_set {
-//!         println!("Name: {}\nDescription: {:#}\n", f.value, f.value)
-//!     }
-//! }
+//! let result = status.flags()
+//!     .filter(|f| f.is_set)
+//!     .map(|f| format!("Name: {}\nDescription: {:#}\n", f.value, f.value))
+//!     .collect::<Vec<_>>()
+//!     .join("\n");
+//! let sample = "\
+//! Name: Interrupt flag
+//! Description: Indicates whether interrupts are enabled or masked.
+//!
+//! Name: Negative flag
+//! Description: Indicates that the result of a mathematical operation is negative.
+//! ";
+//! assert_eq!(sample, result);
 //! ```
 //! 
 //! ---
@@ -190,20 +239,47 @@ pub use layouts::*;
 
 /// Main trait for creating bitfield 
 ///
-/// In general you need implement this trait and its dependencies [Layout] + [Bytes]. 
+/// In general you need implement this trait and its dependencies: [Layout]. 
 /// This trait already implemented for [BitField].
-pub trait BitFieldLayout: Layout + Bytes {
-    /// Return iterator through bitfield value bits. Every bit represents as bool value
-    fn bits(&self) -> Bits<Self::Bytes> {
-        Bits::new(self.bytes())
+pub trait BitFieldLayout: Layout {
+    type Value: Copy + IntoBits;
+    /// Returns a copy of the contained value.
+    fn get(&self) -> Self::Value;
+    /// Sets the contained value.
+    fn set(&mut self, new: Self::Value);
+
+    /// Replaces the contained value with val, and returns the old contained value.
+    fn replace(&mut self, new: Self::Value) -> Self::Value {
+        let v = self.get();
+        self.set(new);
+        v
+    }
+    /// Swaps the values of two bitfields.
+    fn swap(&mut self, other: &mut Self) {
+        let (a, b) = (self.get(), other.get());
+        self.set(b);
+        other.set(a);
+    }
+    /// Updates the contained value using a function and returns the new value.
+    fn update<F>(&mut self, f: F) -> Self::Value
+    where
+        F: FnOnce(Self::Value) -> Self::Value,
+    {
+        let v = f(self.get());
+        self.set(v);
+        v
+    }
+    /// Return iterator through bitfield value bits. Every bit represents as bool value.
+    fn bits(&self) -> Bits<<Self::Value as IntoBits>::Bytes> {
+        self.get().into_bits()
     }
     /// Return iterator through bitfield value flags. Every flag contains bit state (set or unset)
-    /// and item (record) value - string in simple case
-    fn flags(&self) -> Flags<Self::Layout, Bits<Self::Bytes>> {
+    /// and item (record) value - string in simple case.
+    fn flags(&self) -> Flags<Self::Layout, Bits<<Self::Value as IntoBits>::Bytes>> {
         Flags::new(Self::layout(), self.bits())
     }
-    /// Helps to find difference between two bitfield values
-    fn diff(&self, other: Self) -> Diff<Self::Layout, Bits<Self::Bytes>>
+    /// Helps to find difference between two bitfield values.
+    fn diff(&self, other: Self) -> Diff<Self::Layout, Bits<<Self::Value as IntoBits>::Bytes>>
     where
         Self: Sized,
     {
@@ -220,58 +296,89 @@ pub trait Layout {
     fn layout() -> Self::Layout;
 }
 
-/// Value iterable as bytes
-pub trait Bytes {
-    /// Bytes iterator. Every bitfield data should be convertable to bytes
-    type Bytes: Iterator<Item = u8>;
-    /// Return iterator through bitfield type value bytes 
-    fn bytes(&self) -> Self::Bytes;
-}
 
-/// Simple trait to converting unsigned integers to byte array
-pub trait ToBytes {
+/// Converts value to bit iterator
+pub trait IntoBits {
     type Bytes: Iterator<Item = u8>;
-    /// Contain one method to convert any reasonable bitfield value representation to bytes
-    /// iterator
-    fn to_bytes(&self) -> Self::Bytes;
+    fn into_bits(self) -> Bits<Self::Bytes>;
 }
-impl ToBytes for u8 {
+impl IntoBits for u8 {
     type Bytes = array::IntoIter<u8, 1>;
-    fn to_bytes(&self) -> Self::Bytes {
-        array::IntoIter::new(self.to_ne_bytes())
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        self.to_ne_bytes().into_bits()
     }
 }
-impl ToBytes for u16 {
+impl IntoBits for u16 {
     type Bytes = array::IntoIter<u8, 2>;
-    fn to_bytes(&self) -> Self::Bytes {
-        array::IntoIter::new(self.to_ne_bytes())
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        self.to_ne_bytes().into_bits()
     }
 }
-impl ToBytes for u32 {
+impl IntoBits for u32 {
     type Bytes = array::IntoIter<u8, 4>;
-    fn to_bytes(&self) -> Self::Bytes {
-        array::IntoIter::new(self.to_ne_bytes())
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        self.to_ne_bytes().into_bits()
     }
 }
-impl ToBytes for u64 {
+impl IntoBits for u64 {
     type Bytes = array::IntoIter<u8, 8>;
-    fn to_bytes(&self) -> Self::Bytes {
-        array::IntoIter::new(self.to_ne_bytes())
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        self.to_ne_bytes().into_bits()
     }
 }
-impl ToBytes for u128 {
+impl IntoBits for u128 {
     type Bytes = array::IntoIter<u8, 16>;
-    fn to_bytes(&self) -> Self::Bytes {
-        array::IntoIter::new(self.to_ne_bytes())
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        self.to_ne_bytes().into_bits()
     }
 }
-impl<const N: usize> ToBytes for [u8; N] {
+impl<const N: usize> IntoBits for [u8; N] {
     type Bytes = array::IntoIter<u8, N>;
-    fn to_bytes(&self) -> Self::Bytes {
-        array::IntoIter::new(self.clone())
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        Bits::new(array::IntoIter::new(self))
     }
 }
 
+/// Converts bit iterator to value
+pub trait FromBits {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self;
+}
+impl FromBits for u8 {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        u8::from_ne_bytes(<[u8; 1]>::from_bits(bits))
+    }
+}
+impl FromBits for u16 {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        u16::from_ne_bytes(<[u8; 2]>::from_bits(bits))
+    }
+}
+impl FromBits for u32 {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        u32::from_ne_bytes(<[u8; 4]>::from_bits(bits))
+    }
+}
+impl FromBits for u64 {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        u64::from_ne_bytes(<[u8; 8]>::from_bits(bits))
+    }
+}
+impl FromBits for u128 {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        u128::from_ne_bytes(<[u8; 16]>::from_bits(bits))
+    }
+}
+impl<const N: usize> FromBits for [u8; N] {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        let mut result = [0u8; N];
+        for (i, is_set) in bits.enumerate().take(N * 8) {
+            if is_set {
+                result[i / 8] |= 1 << (i % 8)
+            }
+        }
+        result
+    }
+}
 
 /// An iterator through value bits
 #[derive(Debug, Clone)]
@@ -303,11 +410,6 @@ impl<I: Iterator<Item = u8>> Iterator for Bits<I> {
 pub struct Flag<T> {
     pub is_set: bool,
     pub value: T,
-}
-impl<T> From<(T, bool)> for Flag<T> {
-    fn from((value, is_set): (T, bool)) -> Self {
-        Self { value, is_set }
-    }
 }
 
 /// An iterator through [Flag]s
@@ -390,16 +492,16 @@ where
 /// Accessory struct for convinient type construction
 ///
 /// This structure holds value of created bitfield type and may be used for types that doesn't has
-/// value field: enums and unit-like structs.
+/// own value field: enums and unit-like structs.
 ///
-/// ## Enum wrapper usage
+/// ## Enum wrapper
 /// Using enumeration as bitfield type has the following advantage - you can bind bit (flag) to one of
 /// enum variants.
 /// ```
 /// # use std::{array, fmt, slice};
 /// # use bitfield_layout::{BitFieldLayout, BitField, Layout};
 /// 
-/// // Creating new bitfield type
+/// // Declare new bitfield type
 /// enum EightFlags {
 ///     One,
 ///     Two,
@@ -476,7 +578,9 @@ where
 /// ];
 /// assert_eq!(sample, result, "Wrapped enum");
 /// ```
-/// We can use bitfield type defined as unit-like struct in the same way
+/// ## Unit-like struct wrapper
+/// We can use bitfield type defined as unit-like struct in the same way as for
+/// [enum](#enum-wrapper)
 /// ```
 /// # use std::{array, fmt, slice};
 /// # use bitfield_layout::{BitFieldLayout, BitField, Layout};
@@ -504,6 +608,7 @@ where
 /// assert_eq!(sample, result, "Simple unit-like struct");
 /// 
 /// ```
+/// ## Unit-like struct with associated constants
 /// Also we can use unit-like struct with associated constant flags. This will gave us feauture to has
 /// marked bits. This realisation somewhere in beetween enum and simple unit-like struct.
 /// ```
@@ -548,11 +653,11 @@ where
 /// assert_eq!(Status::FOUR, *result, "Enumeration");
 /// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
-pub struct BitField<M, T: ToBytes> {
+pub struct BitField<M, T> {
     _marker: core::marker::PhantomData<M>,
     pub value: T,
 }
-impl<M, T: ToBytes> BitField<M, T> {
+impl<M, T> BitField<M, T> {
     pub fn new(value: T) -> Self {
         Self {
             _marker: core::marker::PhantomData,
@@ -560,15 +665,15 @@ impl<M, T: ToBytes> BitField<M, T> {
         }
     }
 }
-impl<M: Layout, T: ToBytes> Layout for BitField<M, T> {
+impl<M: Layout, T> Layout for BitField<M, T> {
     type Layout = M::Layout;
     fn layout() -> Self::Layout { M::layout() }
 }
-impl<M: Layout, T: ToBytes> Bytes for BitField<M, T> {
-    type Bytes = <T as ToBytes>::Bytes;
-    fn bytes(&self) -> Self::Bytes { self.value.to_bytes() }
+impl<M: Layout, T: Copy + IntoBits> BitFieldLayout for BitField<M, T> {
+    type Value = T;
+    fn get(&self) -> Self::Value { self.value }
+    fn set(&mut self, new: Self::Value) { self.value = new; }
 }
-impl<M: Layout, T: ToBytes> BitFieldLayout for BitField<M, T> {}
 
 
 #[cfg(test)]
@@ -592,16 +697,6 @@ mod tests {
         assert_eq!(sample, result, "Bits");
     }
 
-    #[test]
-    fn to_bytes() {
-        assert_eq!(13u8.to_bytes().collect::<Vec<_>>(), vec![13], "ToBytes: u8");
-        assert_eq!(13u16.to_bytes().collect::<Vec<_>>(), vec![13,0], "ToBytes: u16");
-        assert_eq!(13u32.to_bytes().collect::<Vec<_>>(), vec![13,0,0,0], "ToBytes: u32");
-        assert_eq!(13u64.to_bytes().collect::<Vec<_>>(), vec![13,0,0,0,0,0,0,0], "ToBytes: u64");
-        assert_eq!(13u128.to_bytes().collect::<Vec<_>>(), vec![13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], "ToBytes: u128");
-        assert_eq!([13u8].to_bytes().collect::<Vec<_>>(), vec![13], "ToBytes: [u8; 1]");
-        assert_eq!([13u8,42u8,73u8].to_bytes().collect::<Vec<_>>(), vec![13, 42, 73], "ToBytes: [u8; 3]");
-    }
 
     #[test]
     fn flags() {
