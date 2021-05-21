@@ -14,7 +14,7 @@ there is module layouts with accessory structs and macros.
 ### Documentation
 
 Documentation with examples for the various matching functions and iterators
-can be found on the [https://docs.rs/bitfield_layout].
+can be found on the https://docs.rs/bitfield_layout
 
 ### Usage
 

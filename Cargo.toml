@@ -1,8 +1,16 @@
 [package]
 name = "bitfield-layout"
 version = "0.1.0"
-authors = ["Mikhail Bratchikov"]
 edition = "2018"
+authors = ["Mikhail Bratchikov"]
+license = "MIT"
+description = "Yet another bitfield handling implementation"
+#homepage =
+documentation = "https://docs.rs/bitfield_layout"
+repository = "https://github.com/pepyaka/bitfield-layout"
+readme = "README.md"
+keywords = ["bitfield", "bitflags"]
+categories = ["no-std"]
 
 [dependencies]
 either = "1.6"
