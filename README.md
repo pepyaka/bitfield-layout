@@ -1,4 +1,6 @@
 [![Rust](https://github.com/pepyaka/bitfield-layout/actions/workflows/rust.yml/badge.svg)](https://github.com/pepyaka/bitfield-layout/actions/workflows/rust.yml)
+[![Crate](https://img.shields.io/crates/v/bitfield-layout.svg)](https://crates.io/crates/bitfield-layout)
+[![API](https://docs.rs/bitfield-layout/badge.svg)](https://docs.rs/bitfield-layout)
 
 BitField layout
 =====
