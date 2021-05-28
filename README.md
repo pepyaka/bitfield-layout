@@ -1,3 +1,5 @@
+[![Rust](https://github.com/pepyaka/bitfield-layout/actions/workflows/rust.yml/badge.svg)](https://github.com/pepyaka/bitfield-layout/actions/workflows/rust.yml)
+
 BitField layout
 =====
 This crate is yet another bitfield handling implementation.
