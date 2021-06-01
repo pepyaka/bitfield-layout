@@ -228,7 +228,7 @@
 
 #![no_std]
 
-use core::array;
+use core::{array, iter, ops};
 
 use either::Either;
 
@@ -371,6 +371,121 @@ impl<const N: usize> IntoBits for [u8; N] {
     }
 }
 
+// At moment const expression can not contain the generic parameter,
+// so we can not just define [u8; { M * N }] array.
+// To implement IntoBits for [u16; N], [u32; N], [u64; N] and [u128; N] we will
+// use some tricks.
+impl<const N: usize> IntoBits for [u16; N] {
+    type Bytes = iter::Flatten<array::IntoIter<array::IntoIter<u8, N>, 2>>;
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        // array::IntoIter has no Copy trait, so we will use copypaste method
+        let mut result = [
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+        ];
+        let mut buf = [0u8; N];
+        let bytes = self.iter()
+            .map(|d| array::IntoIter::new(d.to_ne_bytes()))
+            .flatten();
+        for (n, byte) in bytes.enumerate() {
+            let i = n % N;
+            buf[i] = byte;
+            if i == N - 1 {
+                result[n / N] = array::IntoIter::new(buf);
+            }
+        }
+        Bits::new(array::IntoIter::new(result).flatten())
+    }
+}
+impl<const N: usize> IntoBits for [u32; N] {
+    type Bytes = iter::Flatten<array::IntoIter<array::IntoIter<u8, N>, 4>>;
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        // array::IntoIter has no Copy trait, so we will use copypaste method
+        let mut result = [
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+        ];
+        let mut buf = [0u8; N];
+        let bytes = self.iter()
+            .map(|d| array::IntoIter::new(d.to_ne_bytes()))
+            .flatten();
+        for (n, byte) in bytes.enumerate() {
+            let i = n % N;
+            buf[i] = byte;
+            if i == N - 1 {
+                result[n / N] = array::IntoIter::new(buf);
+            }
+        }
+        Bits::new(array::IntoIter::new(result).flatten())
+    }
+}
+impl<const N: usize> IntoBits for [u64; N] {
+    type Bytes = iter::Flatten<array::IntoIter<array::IntoIter<u8, N>, 8>>;
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        // array::IntoIter has no Copy trait, so we will use copypaste method
+        let mut result = [
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+        ];
+        let mut buf = [0u8; N];
+        let bytes = self.iter()
+            .map(|d| array::IntoIter::new(d.to_ne_bytes()))
+            .flatten();
+        for (n, byte) in bytes.enumerate() {
+            let i = n % N;
+            buf[i] = byte;
+            if i == N - 1 {
+                result[n / N] = array::IntoIter::new(buf);
+            }
+        }
+        Bits::new(array::IntoIter::new(result).flatten())
+    }
+}
+impl<const N: usize> IntoBits for [u128; N] {
+    type Bytes = iter::Flatten<array::IntoIter<array::IntoIter<u8, N>, 16>>;
+    fn into_bits(self) -> Bits<Self::Bytes> {
+        // array::IntoIter has no Copy trait, so we will use copypaste method
+        let mut result = [
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+            array::IntoIter::new([0u8; N]),
+        ];
+        let mut buf = [0u8; N];
+        let bytes = self.iter()
+            .map(|d| array::IntoIter::new(d.to_ne_bytes()))
+            .flatten();
+        for (n, byte) in bytes.enumerate() {
+            let i = n % N;
+            buf[i] = byte;
+            if i == N - 1 {
+                result[n / N] = array::IntoIter::new(buf);
+            }
+        }
+        Bits::new(array::IntoIter::new(result).flatten())
+    }
+}
+
 /// Converts bit iterator to value
 pub trait FromBits {
     fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self;
@@ -411,9 +526,54 @@ impl<const N: usize> FromBits for [u8; N] {
         result
     }
 }
+impl<const N: usize> FromBits for [u16; N] {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        <[[u8; 2]; N]>::from_bits(bits).iter()
+            .map(|arr| u16::from_ne_bytes(*arr))
+            .enumerate()
+            .fold([0; N], |mut result, (n, v)| { result[n] = v; result })
+    }
+}
+impl<const N: usize> FromBits for [u32; N] {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        <[[u8; 4]; N]>::from_bits(bits).iter()
+            .map(|arr| u32::from_ne_bytes(*arr))
+            .enumerate()
+            .fold([0; N], |mut result, (n, v)| { result[n] = v; result })
+    }
+}
+impl<const N: usize> FromBits for [u64; N] {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        <[[u8; 8]; N]>::from_bits(bits).iter()
+            .map(|arr| u64::from_ne_bytes(*arr))
+            .enumerate()
+            .fold([0; N], |mut result, (n, v)| { result[n] = v; result })
+    }
+}
+impl<const N: usize> FromBits for [u128; N] {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        <[[u8; 16]; N]>::from_bits(bits).iter()
+            .map(|arr| u128::from_ne_bytes(*arr))
+            .enumerate()
+            .fold([0; N], |mut result, (n, v)| { result[n] = v; result })
+    }
+}
+impl<const N: usize, const M: usize> FromBits for [[u8; N]; M] {
+    fn from_bits<I: Iterator<Item = bool>>(bits: I) -> Self {
+        let mut result = [[0u8; N]; M];
+        for (i, is_set) in bits.enumerate().take(N * M * 8) {
+            if is_set {
+                let m = (i / 8) % M;
+                let n = (i / 8) % N;
+                result[m][n] |= 1 << (i % 8)
+            }
+        }
+        result
+    }
+}
 
 /// An iterator through value bits
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Bits<I> {
     iter: I,
     byte: u8,
@@ -729,6 +889,33 @@ mod tests {
         assert_eq!(sample, result, "Bits");
     }
 
+    #[test]
+    fn into_bits() {
+        assert_eq!(vec![false,true,false,true], 42u8.into_bits().take(4).collect::<Vec<_>>(), "u8");
+        assert_eq!(vec![false,true,false,true], 42u16.into_bits().take(4).collect::<Vec<_>>(), "u16");
+        assert_eq!(vec![false,true,false,true], 42u32.into_bits().take(4).collect::<Vec<_>>(), "u32");
+        assert_eq!(vec![false,true,false,true], 42u64.into_bits().take(4).collect::<Vec<_>>(), "u64");
+        assert_eq!(vec![false,true,false,true], 42u128.into_bits().take(4).collect::<Vec<_>>(), "u128");
+        assert_eq!(vec![false,true,false,true], [42u8,1,2].into_bits().take(4).collect::<Vec<_>>(), "[u8;3]");
+        assert_eq!(vec![false,true,false,true], [42u16,1,2].into_bits().take(4).collect::<Vec<_>>(), "[u16;3]");
+        assert_eq!(vec![false,true,false,true], [42u32,1,2].into_bits().take(4).collect::<Vec<_>>(), "[u32;3]");
+        assert_eq!(vec![false,true,false,true], [42u64,1,2].into_bits().take(4).collect::<Vec<_>>(), "[u64;3]");
+        assert_eq!(vec![false,true,false,true], [42u128,1,2].into_bits().take(4).collect::<Vec<_>>(), "[u128;3]");
+    }
+
+    #[test]
+    fn from_bits() {
+        assert_eq!(42, u8::from_bits(42u8.into_bits()), "u8");
+        assert_eq!(42, u16::from_bits(42u16.into_bits()), "u16");
+        assert_eq!(42, u32::from_bits(42u32.into_bits()), "u32");
+        assert_eq!(42, u64::from_bits(42u64.into_bits()), "u64");
+        assert_eq!(42, u128::from_bits(42u128.into_bits()), "u128");
+        assert_eq!([42;3], <[u8;3]>::from_bits([42u8;3].into_bits()), "[u8;3]");
+        assert_eq!([42;3], <[u16;3]>::from_bits([42u16;3].into_bits()), "[u16;3]");
+        assert_eq!([42;3], <[u32;3]>::from_bits([42u32;3].into_bits()), "[u32;3]");
+        assert_eq!([42;3], <[u64;3]>::from_bits([42u64;3].into_bits()), "[u64;3]");
+        assert_eq!([42;3], <[u128;3]>::from_bits([42u128;3].into_bits()), "[u128;3]");
+    }
 
     #[test]
     fn flags() {
