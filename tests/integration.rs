@@ -23,7 +23,7 @@ fn general_operations() {
     }
 
     let layout_sample = vec!["A", "B", "C", "D", "E", "F", "G", "H"];
-    let layout_result = Simple::layout().map(|bf| format!("{:#}", bf)).collect::<Vec<_>>();
+    let layout_result = Simple::layout().map(|bf| bf.to_string()).collect::<Vec<_>>();
     assert_eq!(layout_sample, layout_result, "Layout");
 
     let simple = Simple(0b00011000);

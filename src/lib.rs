@@ -202,7 +202,7 @@
 //!     fn set(&mut self, new: Self::Value) { self.0 = new; }
 //! }
 //! 
-//! // For example our value has setted Carry and Negative flags
+//! // For example our value has setted Interrupt and Negative flags
 //! let status = StatusRegister(0b10000100);
 //! 
 //! let result = status.flags()
@@ -857,15 +857,75 @@ impl<M, T> BitField<M, T> {
         }
     }
 }
+#[doc(notable_trait)]
 impl<M: Layout, T> Layout for BitField<M, T> {
     type Layout = M::Layout;
     fn layout() -> Self::Layout { M::layout() }
 }
+#[doc(notable_trait)]
 impl<M: Layout, T: Copy + IntoBits + FromBits> BitFieldLayout for BitField<M, T> {
     type Value = T;
     fn get(&self) -> Self::Value { self.value }
     fn set(&mut self, new: Self::Value) { self.value = new; }
 }
+impl<M, T> ops::BitAnd for BitField<M, T>
+where
+    M: Layout,
+    T: Copy + IntoBits + FromBits + ops::BitAnd<Output = T>,
+{
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self::new(self.get() & rhs.get())
+    }
+}
+impl<M, T> ops::BitAndAssign for BitField<M, T>
+where
+    M: Layout,
+    T: Copy + IntoBits + FromBits + ops::BitAnd<Output = T>,
+{
+    fn bitand_assign(&mut self, rhs: Self) {
+        *self = Self::new(self.get() & rhs.get())
+    }
+}
+impl<M, T> ops::BitOr for BitField<M, T>
+where
+    M: Layout,
+    T: Copy + IntoBits + FromBits + ops::BitOr<Output = T>,
+{
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self::new(self.get() | rhs.get())
+    }
+}
+impl<M, T> ops::BitOrAssign for BitField<M, T>
+where
+    M: Layout,
+    T: Copy + IntoBits + FromBits + ops::BitOr<Output = T>,
+{
+    fn bitor_assign(&mut self, rhs: Self) {
+        *self = Self::new(self.get() | rhs.get())
+    }
+}
+impl<M, T> ops::BitXor for BitField<M, T>
+where
+    M: Layout,
+    T: Copy + IntoBits + FromBits + ops::BitXor<Output = T>,
+{
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Self::new(self.get() ^ rhs.get())
+    }
+}
+impl<M, T> ops::BitXorAssign for BitField<M, T>
+where
+    M: Layout,
+    T: Copy + IntoBits + FromBits + ops::BitXor<Output = T>,
+{
+    fn bitxor_assign(&mut self, rhs: Self) {
+        *self = Self::new(self.get() ^ rhs.get())
+    }
+}
+
 
 
 #[cfg(test)]
@@ -949,5 +1009,37 @@ mod tests {
         ];
         let result = Diff::new(flags0, flags1).collect::<Vec<_>>();
         assert_eq!(sample, result, "Diff");
+    }
+
+    #[test]
+    fn bitfield_bitwise() {
+        #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+        struct Simple;
+        // Dumb layout
+        impl Layout for Simple {
+            type Layout = core::iter::Empty<()>;
+            fn layout() -> Self::Layout { std::iter::empty() }
+        }
+
+        let bitand_result: BitField<Simple, u8> = BitField::new(42) & BitField::new(0b1111);
+        assert_eq!(BitField::<Simple, u8>::new(0b1010), bitand_result, "BitAnd");
+
+        let mut bitand_assign_result: BitField<Simple, u8> = BitField::new(42);
+        bitand_assign_result &= BitField::new(0b1111);
+        assert_eq!(BitField::<Simple, u8>::new(0b1010), bitand_assign_result, "BitAndAssign");
+
+        let bitor_result: BitField<Simple, u8> = BitField::new(42) | BitField::new(0b1111);
+        assert_eq!(BitField::<Simple, u8>::new(0b101111), bitor_result, "BitOr");
+
+        let mut bitor_assign_result: BitField<Simple, u8> = BitField::new(42);
+        bitor_assign_result |= BitField::new(0b1111);
+        assert_eq!(BitField::<Simple, u8>::new(0b101111), bitor_assign_result, "BitOrAssign");
+
+        let bitxor_result: BitField<Simple, u8> = BitField::new(42) ^ BitField::new(0b1111);
+        assert_eq!(BitField::<Simple, u8>::new(0b100101), bitxor_result, "BitXor");
+
+        let mut bitxor_assign_result: BitField<Simple, u8> = BitField::new(42);
+        bitxor_assign_result ^= BitField::new(0b1111);
+        assert_eq!(BitField::<Simple, u8>::new(0b100101), bitxor_assign_result, "BitXorAssign");
     }
 }

@@ -411,7 +411,7 @@ mod tests {
         );
         let l0 = Letters(0b00000000);
         let l1 = Letters(0b00100000);
-        let result = l0.diff(l1).nth(0).unwrap();
+        let result = l0.diff(l1).next().unwrap();
         let sample = either::Either::Right((5, &DualView("f", "F")));
         assert_eq!(sample, result);
         layout!(
@@ -444,7 +444,7 @@ mod tests {
         );
         let ef0 = EightFlags(0b00000000);
         let ef1 = EightFlags(0b00100000);
-        let result = ef0.diff(ef1).nth(0).unwrap();
+        let result = ef0.diff(ef1).next().unwrap();
         let sample = either::Either::Right((5, &FlagType::ShouldBe1));
         assert_eq!(sample, result);
     }
