@@ -249,28 +249,102 @@ pub trait BitFieldLayout: Layout {
     fn set(&mut self, new: Self::Value);
 
     /// Replaces the contained value with val, and returns the old contained value.
+    /// ```
+    /// # use std::iter;
+    /// # use bitfield_layout::{BitFieldLayout, Layout};
+    /// # struct Simple(u16);
+    /// # impl Layout for Simple {
+    /// #     type Layout = iter::Empty<()>;
+    /// #     fn layout() -> Self::Layout { iter::empty() }
+    /// # }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u16;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple = Simple(42);
+    ///
+    /// assert_eq!(42, simple.replace(13));
+    /// assert_eq!(13, simple.get());
+    /// ```
     fn replace(&mut self, new: Self::Value) -> Self::Value {
         let v = self.get();
         self.set(new);
         v
     }
     /// Swaps the values of two bitfields.
+    /// ```
+    /// # use std::iter;
+    /// # use bitfield_layout::{BitFieldLayout, Layout};
+    /// # struct Simple(u16);
+    /// # impl Layout for Simple {
+    /// #     type Layout = iter::Empty<()>;
+    /// #     fn layout() -> Self::Layout { iter::empty() }
+    /// # }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u16;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut one = Simple(1);
+    /// let mut two = Simple(2);
+    ///
+    /// one.swap(&mut two);
+    ///
+    /// assert!(one.get() == 2 && two.get() == 1);
+    /// ```
     fn swap(&mut self, other: &mut Self) {
         let (a, b) = (self.get(), other.get());
         self.set(b);
         other.set(a);
     }
     /// Updates the contained value using a function and returns the new value.
+    /// ```
+    /// # use std::iter;
+    /// # use bitfield_layout::{BitFieldLayout, Layout};
+    /// # struct Simple(u64);
+    /// # impl Layout for Simple {
+    /// #     type Layout = iter::Empty<()>;
+    /// #     fn layout() -> Self::Layout { iter::empty() }
+    /// # }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u64;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple = Simple(1111111111);
+    ///
+    /// assert_eq!(2222222222, simple.update(|x| x * 2));
+    /// assert_eq!(2222222222, simple.get());
+    /// ```
     fn update<F>(&mut self, f: F) -> Self::Value
     where
         F: FnOnce(Self::Value) -> Self::Value,
     {
         let v = f(self.get());
         self.set(v);
-        v
+        self.get()
     }
 
     /// Set the specified bit (flag) in-place. Returns current state
+    /// ```
+    /// # use std::iter;
+    /// # use bitfield_layout::{BitFieldLayout, Layout};
+    /// # struct Simple(u64);
+    /// # impl Layout for Simple {
+    /// #     type Layout = iter::Empty<()>;
+    /// #     fn layout() -> Self::Layout { iter::empty() }
+    /// # }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u64;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple = Simple(0b10011001);
+    ///
+    /// assert_eq!(false, simple.insert_flag(2, true));
+    /// assert_eq!(0b10011101, simple.get());
+    /// ```
     fn insert_flag(&mut self, position: usize, b: bool) -> bool {
         let mut result = false;
         let bits = self.get()
@@ -288,6 +362,25 @@ pub trait BitFieldLayout: Layout {
         result
     }
     /// The specified bit (flag) will be inverted
+    /// ```
+    /// # use std::iter;
+    /// # use bitfield_layout::{BitFieldLayout, Layout};
+    /// # struct Simple(u64);
+    /// # impl Layout for Simple {
+    /// #     type Layout = iter::Empty<()>;
+    /// #     fn layout() -> Self::Layout { iter::empty() }
+    /// # }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u64;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple = Simple(0b10011001);
+    ///
+    /// simple.toggle_flag(0);
+    ///
+    /// assert_eq!(0b10011000, simple.get());
+    /// ```
     fn toggle_flag(&mut self, position: usize) {
         let bits = self.get()
             .into_bits()
@@ -302,15 +395,90 @@ pub trait BitFieldLayout: Layout {
         self.set(Self::Value::from_bits(bits));
     }
     /// Return iterator through bitfield value bits. Every bit represents as bool value.
+    /// ```
+    /// # use std::iter;
+    /// # use bitfield_layout::{BitFieldLayout, Layout};
+    /// # struct Simple(u8);
+    /// # impl Layout for Simple {
+    /// #     type Layout = iter::Empty<()>;
+    /// #     fn layout() -> Self::Layout { iter::empty() }
+    /// # }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u8;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple = Simple(0b01010101);
+    ///
+    /// assert!(simple.bits().step_by(2).all(|v| v == true));
+    /// ```
     fn bits(&self) -> Bits<<Self::Value as IntoBits>::Bytes> {
         self.get().into_bits()
     }
     /// Return iterator through bitfield value flags. Every flag contains bit state (set or unset)
     /// and item (record) value - string in simple case.
+    /// ```
+    /// # use std::{iter, slice};
+    /// # use bitfield_layout::{BitFieldLayout, Flag, Layout};
+    /// struct Simple(u8);
+    /// impl Layout for Simple {
+    ///     type Layout = slice::Iter<'static, &'static str>;
+    ///     fn layout() -> Self::Layout {
+    ///         [
+    ///             "First",
+    ///             "Second",
+    ///             "Third",
+    ///             "Fourth",
+    ///             "Fifth",
+    ///             "Sixth",
+    ///             "Seventh",
+    ///             "Eighth",
+    ///         ].iter()
+    ///     }
+    /// }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u8;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple = Simple(0b01010101);
+    ///
+    /// assert_eq!(Flag { is_set: true, value: &"First"}, simple.flags().next().unwrap());
+    /// ```
     fn flags(&self) -> Flags<Self::Layout, Bits<<Self::Value as IntoBits>::Bytes>> {
         Flags::new(Self::layout(), self.bits())
     }
     /// Helps to find difference between two bitfield values.
+    /// ```
+    /// # use std::{iter, slice};
+    /// # use either::Either;
+    /// # use bitfield_layout::{BitFieldLayout, Flag, Layout};
+    /// struct Simple(u8);
+    /// impl Layout for Simple {
+    ///     type Layout = slice::Iter<'static, &'static str>;
+    ///     fn layout() -> Self::Layout {
+    ///         [
+    ///             "First",
+    ///             "Second",
+    ///             "Third",
+    ///             "Fourth",
+    ///             "Fifth",
+    ///             "Sixth",
+    ///             "Seventh",
+    ///             "Eighth",
+    ///         ].iter()
+    ///     }
+    /// }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u8;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut left =  Simple(0b01010101);
+    /// let mut right = Simple(0b01010001);
+    ///
+    /// assert_eq!(vec![Either::Left((2, &"Third"))], left.diff(right).collect::<Vec<_>>());
+    /// ```
     fn diff(&self, other: Self) -> Diff<Self::Layout, Bits<<Self::Value as IntoBits>::Bytes>>
     where
         Self: Sized,
