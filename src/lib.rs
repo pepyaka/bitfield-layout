@@ -1025,12 +1025,10 @@ impl<M, T> BitField<M, T> {
         }
     }
 }
-#[doc(notable_trait)]
 impl<M: Layout, T> Layout for BitField<M, T> {
     type Layout = M::Layout;
     fn layout() -> Self::Layout { M::layout() }
 }
-#[doc(notable_trait)]
 impl<M: Layout, T: Copy + IntoBits + FromBits> BitFieldLayout for BitField<M, T> {
     type Value = T;
     fn get(&self) -> Self::Value { self.value }
