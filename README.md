@@ -20,15 +20,6 @@ there is module layouts with accessory structs and macros.
 Documentation with examples for the various matching functions and iterators
 can be found on the https://docs.rs/bitfield-layout
 
-### Usage
-
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-bitfield_layout = "0.1"
-```
-
 ### Minimum Rust version policy
 
 This crate's minimum supported `rustc` version is `1.51`.

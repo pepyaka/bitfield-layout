@@ -101,6 +101,15 @@
 //! ];
 //! assert_eq!(flags_sample, flags_result, "Flags");
 //! 
+//! // Same as above, but using internal [Flag] Display trait
+//! let flags = simple.flags();
+//! let flags_str_result: String = flags
+//!     .map(|f| format!("{}", f))
+//!     .collect::<Vec<String>>()
+//!     .join(" ");
+//! let flags_str_sample = "-#0 +#1 -#2 +#3 -#4 +#5 -#6 +#7";
+//! assert_eq!(flags_str_sample, flags_str_result, "Flags");
+//!
 //! // Show difference between two bitfield values
 //! let other = Simple(0b11001100);
 //! let diff = simple.diff(other);
@@ -228,7 +237,7 @@
 
 #![no_std]
 
-use core::{array, iter, ops};
+use core::{array, fmt, iter, ops};
 
 use either::Either;
 
@@ -443,7 +452,7 @@ pub trait BitFieldLayout: Layout {
     /// # }
     /// let mut simple = Simple(0b01010101);
     ///
-    /// assert_eq!(Flag { is_set: true, value: &"First"}, simple.flags().next().unwrap());
+    /// assert_eq!(Flag { position: 0, is_set: true, value: &"First"}, simple.flags().next().unwrap());
     /// ```
     fn flags(&self) -> Flags<Self::Layout, Bits<<Self::Value as IntoBits>::Bytes>> {
         Flags::new(Self::layout(), self.bits())
@@ -768,8 +777,15 @@ impl<I: Iterator<Item = u8>> Iterator for Bits<I> {
 /// Handle flag state and flag meaning
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct Flag<T> {
+    pub position: usize,
     pub is_set: bool,
     pub value: T,
+}
+/// Simple formatting: **+** for setted flag and **-** otherwise
+impl<T> fmt::Display for Flag<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}#{}", if self.is_set { "+" } else { "-" }, self.position)
+    }
 }
 
 /// An iterator through [Flag]s
@@ -779,6 +795,7 @@ where
     L: Iterator,
     B: Iterator<Item = bool>
 {
+    position: usize,
     layout: L,
     bits: B,
 }
@@ -788,7 +805,7 @@ where
     B: Iterator<Item = bool>
 {
     pub fn new(layout: L, bits: B) -> Self {
-        Self { layout, bits, }
+        Self { position: 0, layout, bits, }
     }
 }
 impl<L, B> Iterator for Flags<L, B>
@@ -801,7 +818,9 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         let value = self.layout.next()?;
         let is_set = self.bits.next()?;
-        Some(Flag { is_set, value })
+        let position = self.position;
+        self.position += 1;
+        Some(Flag { position, is_set, value })
     }
 }
 

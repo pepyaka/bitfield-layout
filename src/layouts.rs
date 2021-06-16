@@ -277,7 +277,8 @@ macro_rules! layout  {
     (item = DualView; [$m:literal, $($input:tt)*] -> [$($output:tt)*]) => {{
         layout!(item = DualView; [$($input)*] -> [$($output)* DualView($m, $m),])
     }};
-    (DualView; $vis:vis $ident:ident $name:ident($value:tt); $($input:tt)*) => {
+    (DualView; $(#[$meta:meta])* $vis:vis $ident:ident $name:ident($value:tt); $($input:tt)*) => {
+        $(#[$meta])*
         $vis $ident $name($value);
         impl $name {
             const LAYOUT: &'static [DualView<'static>] =
@@ -335,7 +336,8 @@ macro_rules! layout  {
         result[$i] = FlagType::Significant($m, $m);
         result
     }};
-    (FlagType; $vis:vis $ident:ident $name:ident($value:tt); $($input:tt)*) => {
+    (FlagType; $(#[$meta:meta])* $vis:vis $ident:ident $name:ident($value:tt); $($input:tt)*) => {
+        $(#[$meta])*
         $vis $ident $name($value);
         impl $name {
             const LAYOUT: [FlagType<'static>; { layout!(@count_bytes $value) * 8 }] =
