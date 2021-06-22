@@ -33,8 +33,8 @@ fn general_operations() {
     assert_eq!(bits_sample, bits_result, "Bits");
 
     let flags_sample = vec![
-        Flag { is_set: true, value: &"D" },
-        Flag { is_set: true, value: &"E" },
+        Flag { position: 3, is_set: true, value: &"D" },
+        Flag { position: 4, is_set: true, value: &"E" },
     ];
     let flags_result = simple.flags().filter(|f| f.is_set).collect::<Vec<_>>();
     assert_eq!(flags_sample, flags_result, "Flags");
