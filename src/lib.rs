@@ -774,7 +774,7 @@ impl<I: Iterator<Item = u8>> Iterator for Bits<I> {
     }
 }
 
-/// Handle flag state and flag meaning
+/// Handle flag's position, state and value
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct Flag<T> {
     pub position: usize,
