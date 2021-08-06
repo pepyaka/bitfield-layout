@@ -494,6 +494,49 @@ pub trait BitFieldLayout: Layout {
     {
         Diff::new(self.flags(), other.flags())
     }
+    /// Find specific flag state. [None] if not find
+    /// ```
+    /// # use std::{iter, slice};
+    /// # use either::Either;
+    /// # use bitfield_layout::{BitFieldLayout, Flag, Layout};
+    /// struct Simple(u8);
+    /// impl Layout for Simple {
+    ///     type Layout = slice::Iter<'static, &'static str>;
+    ///     fn layout() -> Self::Layout {
+    ///         [
+    ///             "First",
+    ///             "Second",
+    ///             "Third",
+    ///             "Fourth",
+    ///             "Fifth",
+    ///             "Sixth",
+    ///             "Seventh",
+    ///             "Eighth",
+    ///         ].iter()
+    ///     }
+    /// }
+    /// # impl BitFieldLayout for Simple {
+    /// #     type Value = u8;
+    /// #     fn get(&self) -> Self::Value { self.0 }
+    /// #     fn set(&mut self, new: Self::Value) { self.0 = new; }
+    /// # }
+    /// let mut simple =  Simple(0b01010101);
+    ///
+    /// assert_eq!(Some(true), simple.find_state(|v| v == &"Third"));
+    /// assert_eq!(None, simple.find_state(|v| v == &"Thirddd"));
+    /// ```
+    fn find_state<P>(&self, predicate: P) -> Option<bool>
+    where
+        //P: FnMut(<&<Self as Layout>::Layout as core::iter::Iterator>::Item) -> bool,
+        P: Fn(<<Self as Layout>::Layout as Iterator>::Item) -> bool,
+    {
+        for f in self.flags() {
+            if predicate(f.value) {
+                return Some(f.is_set)
+            }
+        }
+        None
+    }
 }
 
 /// Associated bits layout
